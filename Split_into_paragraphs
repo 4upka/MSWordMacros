@@ -1,0 +1,61 @@
+Sub Split_into_paragraphs()
+'
+'Split the docx into separate docx files.
+'
+'
+Dim SearchString As String
+Dim NumStart As Long
+Dim NumEnd As Long
+Dim DocLength As Long
+Dim MyRange As Range
+Dim ReqNumber As Range
+Dim FileName As String
+Dim LangSuffix As String
+Dim t As Table
+
+ActiveDocument.ConvertNumbersToText 'convert msword list numbers into plain text
+For Each t In ActiveDocument.Tables 'add a blank paragraph after each table
+    t.Select
+    NumOfCells = Selection.Cells.Count
+    Selection.Cells(NumOfCells).Select
+    Selection.InsertRowsBelow 1
+    Selection.Cells.Merge
+    Selection.Rows.ConvertToText Separator:=wdSeparateByDefaultListSeparator, _
+        NestedTables:=True
+Next
+DocLength = ActiveDocument.Paragraphs.Count
+inputlabel: SearchString = InputBox("Define the criteria to split. The symbols that already in input line - represent the end of the paragraph AFTER we actually split. Replace "XXX" with symbols that represent the beginning of the next paragraph", "Search to split?", "[^011^012^013]XXX")
+LangSuffix = InputBox("Type in the suffix that shall appear at the end of each new file name.", "Generated file suffix", "en")
+Selection.StartOf Unit:=wdStory, Extend:=wdMove
+Selection.Find.ClearFormatting
+With Selection.Find
+    .Text = SearchString
+    .Forward = True
+    .MatchCase = False
+    .MatchPrefix = False
+    .MatchWildcards = True
+    .Wrap = wdFindStop
+End With
+Selection.Find.Execute
+If Selection.Find.Found = True Then
+    NumStart = ActiveDocument.Range(0, Selection.Paragraphs.First.Range.End).Paragraphs.Count + 1
+    Else: GoTo inputlabel
+End If
+cyclelabel: Selection.Find.Execute
+If Selection.Find.Found = True Then
+    NumEnd = ActiveDocument.Range(0, Selection.Paragraphs.Last.Range.End).Paragraphs.Count
+    Set MyRange = ActiveDocument.Range(ActiveDocument.Paragraphs(NumStart + 1).Range.Start, ActiveDocument.Paragraphs(NumEnd - 1).Range.End)
+    Set ReqNumber = ActiveDocument.Range(ActiveDocument.Paragraphs(NumStart).Range.Start, ActiveDocument.Paragraphs(NumStart).Range.End)
+    FileName = ActiveDocument.Path & Application.PathSeparator & ReqNumber.Text & "_" & LangSuffix & ".docx"
+    FileName = Replace(FileName, Chr(13), "")
+    MyRange.ExportFragment FileName, wdFormatDocumentDefault
+    NumStart = NumEnd
+    GoTo cyclelabel
+End If
+'process the final portion of the file until the last paragraph of the active document
+Set MyRange = ActiveDocument.Range(ActiveDocument.Paragraphs(NumEnd + 1).Range.Start, ActiveDocument.Paragraphs(DocLength).Range.End)
+Set ReqNumber = ActiveDocument.Range(ActiveDocument.Paragraphs(NumEnd).Range.Start, ActiveDocument.Paragraphs(NumEnd).Range.End)
+FileName = ActiveDocument.Path & Application.PathSeparator & ReqNumber.Text & "_" & LangSuffix & ".docx"
+FileName = Replace(FileName, Chr(13), "")
+MyRange.ExportFragment FileName, wdFormatDocumentDefault
+End Sub
